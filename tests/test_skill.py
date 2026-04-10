@@ -1,6 +1,7 @@
 import os
 import shutil
 import subprocess
+import tarfile
 import zipfile
 from pathlib import Path
 from unittest.mock import patch
@@ -171,3 +172,52 @@ def test_wheel_includes_root_skill_content(tmp_path):
         packaged_skill = wheel.read("src/data/SKILL.md").decode("utf-8")
 
     assert packaged_skill == (repo_root / "SKILL.md").read_text(encoding="utf-8")
+
+
+def test_sdist_includes_root_skill_file(tmp_path):
+    if shutil.which("uv") is None:
+        pytest.skip("uv is required for build smoke tests")
+
+    repo_root = Path(__file__).resolve().parents[1]
+    build_dir = tmp_path / "dist"
+    env = dict(os.environ, UV_CACHE_DIR=str(tmp_path / "uv-cache"))
+    result = subprocess.run(
+        ["uv", "build", "--sdist", "--out-dir", str(build_dir)],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=False,
+        env=env,
+    )
+    if result.returncode != 0:
+        stderr = result.stderr.lower()
+        if "failed to fetch" in stderr or "connect error" in stderr or "os error 10013" in stderr:
+            pytest.skip("uv build requires network access to resolve build dependencies")
+        assert result.returncode == 0, result.stderr
+
+    sdist_path = next(build_dir.glob("*.tar.gz"))
+    with tarfile.open(sdist_path, "r:gz") as sdist:
+        names = sdist.getnames()
+
+    assert any(name.endswith("/SKILL.md") for name in names)
+
+
+def test_sync_packaged_skill_accepts_packaged_fallback(tmp_path):
+    repo_root = Path(__file__).resolve().parents[1]
+    setup_path = repo_root / "setup.py"
+    setup_source = setup_path.read_text(encoding="utf-8")
+    namespace: dict[str, object] = {"__file__": str(setup_path)}
+
+    with patch("setuptools.setup"):
+        exec(compile(setup_source, str(setup_path), "exec"), namespace)
+
+    packaged_skill = tmp_path / "src" / "data" / "SKILL.md"
+    packaged_skill.parent.mkdir(parents=True)
+    packaged_skill.write_text("# Packaged skill", encoding="utf-8")
+
+    namespace["ROOT_SKILL"] = tmp_path / "SKILL.md"
+    namespace["PACKAGED_SKILL"] = packaged_skill
+
+    namespace["sync_packaged_skill"]()
+
+    assert packaged_skill.read_text(encoding="utf-8") == "# Packaged skill"

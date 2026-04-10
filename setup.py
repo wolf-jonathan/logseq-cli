@@ -15,10 +15,17 @@ PACKAGED_SKILL = ROOT / "src" / "data" / "SKILL.md"
 
 
 def sync_packaged_skill() -> None:
-    if not ROOT_SKILL.exists():
-        raise FileNotFoundError(f"Missing root skill file: {ROOT_SKILL}")
-    PACKAGED_SKILL.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(ROOT_SKILL, PACKAGED_SKILL)
+    if ROOT_SKILL.exists():
+        PACKAGED_SKILL.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(ROOT_SKILL, PACKAGED_SKILL)
+        return
+
+    if PACKAGED_SKILL.exists():
+        return
+
+    raise FileNotFoundError(
+        f"Missing skill file. Checked: {ROOT_SKILL} and {PACKAGED_SKILL}"
+    )
 
 
 class build_py(_build_py):
