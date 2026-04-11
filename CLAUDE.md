@@ -81,6 +81,12 @@ pytest --tb=short
 | `auth set-token [token]` | | Stores or replaces the token; prompts securely if `token` is omitted |
 | `auth status` | | Shows config path and whether a token is stored |
 
+### top-level
+
+| Command | Notes |
+|---------|-------|
+| `version` | Prints the current CLI version |
+
 ### page
 
 | Command | Args | Notes |
@@ -134,6 +140,8 @@ pytest --tb=short
 - Auto-stdin: commands that accept `name`/`uuid` read from piped NDJSON when no arg given
 - `--fields name,uuid` filters output to specific keys (token-efficient for LLMs)
 - `--plain` outputs `key: value` pairs instead of JSON
+- When adding a new command or changing an existing command, update the README in the same task.
+- When adding a new command or changing an existing command, verify it appears in the CLI help output in the same task.
 - When making a code or release-relevant behavior change, also increment the version in `pyproject.toml`.
 - Do not bump the version for documentation-only, comment-only, or other non-code changes.
 - Use semantic versioning for that bump unless the user asks otherwise:

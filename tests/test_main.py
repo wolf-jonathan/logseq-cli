@@ -1,6 +1,21 @@
 from __future__ import annotations
 
-from src.cli.main import configure_windows_stdio_utf8
+from src import __version__
+from src.cli.main import app, configure_windows_stdio_utf8
+
+
+def test_version_command_prints_current_cli_version(runner):
+    result = runner.invoke(app, ["version"])
+
+    assert result.exit_code == 0
+    assert result.stdout == f"{__version__}\n"
+
+
+def test_top_level_help_lists_version_command(runner):
+    result = runner.invoke(app, ["--help"])
+
+    assert result.exit_code == 0
+    assert "version" in result.stdout
 
 
 class _FakeStream:

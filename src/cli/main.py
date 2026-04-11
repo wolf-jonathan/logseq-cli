@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 
 from src.logseq_client import LogseqClient
 from src.logseq_service import LogseqService
+from src import __version__
 from src.config import get_token
 from src.cli import auth as auth_module
 from src.cli import page as page_module
@@ -42,6 +43,11 @@ app.add_typer(block_module.app, name="block")
 app.add_typer(graph_module.app, name="graph")
 app.add_typer(query_module.app, name="query")
 app.add_typer(skill_module.app, name="skill")
+
+
+@app.command("version")
+def version() -> None:
+    typer.echo(__version__)
 
 
 def get_service() -> LogseqService:

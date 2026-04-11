@@ -364,6 +364,9 @@ If you prefer, the CLI still supports `LOGSEQ_TOKEN` and will use it instead of 
 Make sure Logseq is running with the HTTP API enabled, then:
 
 ```bash
+# Print the installed CLI version
+logseq version
+
 # Verify the connection
 logseq graph info
 
@@ -380,6 +383,12 @@ logseq block append "My Page" "- New thought"
 ---
 
 ## Command Reference
+
+### top-level
+
+| Command | What It Does |
+|---------|--------------|
+| `version` | Prints the current `logseq` CLI version |
 
 ### auth
 

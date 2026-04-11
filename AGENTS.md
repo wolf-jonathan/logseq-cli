@@ -60,6 +60,7 @@ Relevant files:
 
 Top-level groups registered in `src/cli/main.py`:
 
+- `version`
 - `auth`
 - `page`
 - `block`
@@ -211,6 +212,8 @@ Keep the CLI thin and the service layer explicit.
 - Do not break piping behavior casually.
 - Do not move error text from stderr to stdout.
 - When changing a command contract, update tests in the same task.
+- When adding a new command or changing an existing command, update the README in the same task.
+- When adding a new command or changing an existing command, verify it is represented in the CLI help output in the same task.
 - When making a code or user-facing behavior change in `src/` or the packaged CLI, also increment the version in `pyproject.toml`.
 - Do not bump the version for documentation-only, comment-only, or other non-code changes.
 - In docs and examples, do not present any installation flow as complete unless it also includes the required auth setup step.
