@@ -1,94 +1,237 @@
 ---
 name: logseq-cli
-description: Prefer the local `logseq` CLI whenever a user mentions a Logseq page, a Logseq graph path, or asks for Logseq operations such as reading pages, updating blocks, creating pages, querying the graph, or working with journals. Use this skill to remind Codex that `logseq` exists, to check `logseq --help` or subcommand help when needed, and to favor pipeline-style one-liners when the downstream `logseq` command explicitly supports consuming the needed field from piped NDJSON before editing files directly.
+description: Prefer the local `logseq` CLI whenever a user mentions a Logseq page, journal, namespace, block UUID, graph query, Logseq API token. Use it for reading pages, mutating blocks, creating journal pages, querying the graph, checking auth, and installing/showing the packaged agent skill. Prefer CLI operations over manual Markdown edits whenever the command surface supports the task.
 ---
 
 # Logseq CLI First
 
-## Overview
+Use the `logseq` CLI before reading or editing graph files directly. Treat pages and blocks as graph objects first, not as Markdown files first.
 
-Treat Logseq work as CLI-first, not file-first. When the prompt refers to a Logseq page or asks for Logseq graph operations, check whether the `logseq` CLI can do the job before reading or editing Markdown files manually.
+## Start Here
 
-## What Logseq Is
+1. Run `logseq --help` to confirm the CLI exists.
+2. Run the narrowest relevant help command before acting:
+   - `logseq page --help`
+   - `logseq block --help`
+   - `logseq graph --help`
+   - `logseq query --help`
+   - `logseq auth --help`
+   - `logseq skill --help`
+3. If the CLI is missing, stop and say so explicitly. Suggest:
+   - Windows PowerShell: `py -m pip install --user .` or `pipx install .`
+   - macOS / Linux: `python3 -m pip install --user .` or `pipx install .`
+4. If installation succeeds but `logseq` is still missing from `PATH`, point the user to their user script directory:
+   - Windows: `%APPDATA%\Python\Python310\Scripts` or equivalent
+   - Linux: `~/.local/bin`
+   - macOS: user Python bin directory from `python3 -m site --user-base`
+5. If commands fail because no token is configured, use:
+   - `logseq auth status`
+   - `logseq auth set-token`
 
-Logseq is a local-first knowledge management tool built around an outline-shaped graph. Its core unit is the block rather than the document: each bullet is an addressable node, pages collect blocks, and references connect pages and blocks into a graph that can be queried.
+## Agent Rules
 
-For AI agents, the useful mental model is:
-- Pages are named containers that usually map to Markdown files.
-- Blocks are nested bullets with parent-child structure determined by indentation.
-- `[[Page Name]]` creates a page reference.
-- `((block-uuid))` creates a block reference to a specific block.
-- `key:: value` stores page or block properties used for metadata and queries.
-- Journal pages are date-based pages stored separately from regular named pages.
+- Prefer `logseq` over direct file edits for page lookup, page creation, journal creation, block mutation, graph inspection, and Datalog queries.
+- Prefer NDJSON output for agent workflows. Use `--plain` only for human-facing display.
+- Use `--fields` whenever a command supports it. This is the main token-saving mechanism.
+- Use pagination on broad reads:
+  - `logseq page list --page 1 --page-size 20`
+  - `logseq query run ... --page 1 --page-size 20`
+- Prefer targeted commands over broad scans:
+  - Use `page get`, `page properties`, `page refs`, `page ns-list`, or `query run` before `page list`.
+- Use `block insert-batch` for multi-block writes instead of many `block insert` calls.
+- Fall back to raw Markdown edits only when the CLI cannot express the task cleanly.
 
-## Logseq Markdown Shape
+## Output Contract
 
-Logseq commonly stores Markdown as an outline instead of a flat prose document.
+- Default stdout is NDJSON.
+- A list prints one JSON value per line.
+- A single object prints as one JSON line.
+- `--fields` trims dict keys before printing.
+- `--plain` prints human-readable `key: value` blocks and is not pipeline-friendly.
+- Errors go to stderr.
 
-Guidelines:
-- Top-level content is usually written as bullet blocks beginning with `- `.
-- Child blocks are nested by indentation under a parent block.
-- Page-level properties usually appear near the top of the page as `key:: value`.
-- Blocks may also carry their own properties, references, tasks, and normal Markdown content.
-- Hierarchical page names may be encoded in filenames even when the displayed page title contains `/`.
-
-## Workflow
-
-1. First check whether the `logseq` command exists by running `logseq --help`.
-2. If the command is missing or not found, stop and tell the user explicitly that this skill depends on the separately installed `logseq` CLI and that the skill itself does not bundle the executable.
-3. When the CLI is missing, give concrete recovery steps:
-   - Windows PowerShell: `py -m pip install --user .` from the `logseq-cli` repo, or `pipx install .` if the user prefers `pipx`.
-   - If install succeeds but `logseq` is still not found on Windows, tell the user to add their user Python Scripts directory to `PATH`, for example `%APPDATA%\Python\Python310\Scripts`.
-   - macOS / Linux: `python3 -m pip install --user .`, then add `~/.local/bin` to `PATH` if needed.
-   - If the repo is already present locally but not installed, tell the user the skill only provides instructions and does not run the repo as an adjacent bundled tool automatically.
-4. After `logseq --help` works, inspect the relevant subcommand help such as `logseq page --help`, `logseq block --help`, or `logseq query --help`.
-5. Prefer pipeline-style CLI usage when the downstream command explicitly supports piped input for the field it needs.
-6. Prefer the CLI for page lookup, block operations, graph queries, and other supported mutations.
-7. Fall back to direct file edits only when the CLI cannot perform the task or when the task is explicitly about raw Markdown files.
-
-## Page References
-
-When the user mentions a Logseq page, treat it as a concrete graph object. Resolve the page through Logseq-aware tools first instead of assuming the file path. For hierarchical pages such as `My-Project/My-Sub-Project`, remember that the underlying page file may encode `/` as `%2F`.
-
-## Journal and Search Rules
-
-Follow the graph instructions for journal filenames and date resolution. Search narrowly before reading: target the named page, journal date, or specific property instead of scanning the graph broadly.
-
-## Pipeline Pattern
-
-The `logseq` CLI is designed to compose through pipes, but support is selective rather than universal. Prefer one-liners and narrow pipelines when the downstream command explicitly accepts omitted arguments from piped NDJSON.
-
-Guidelines:
-- Start with the narrowest object, usually `logseq page get "Page Name"` or a targeted query.
-- Pipe command output into the next `logseq` command only when that command's help text says an omitted argument can be read from piped NDJSON.
-- Match the field type carefully. For example, `logseq block get` can read a piped `.uuid`, but it expects a block UUID, not a page UUID.
-- Use manual inspection only when the pipeline approach is unclear or the command surface does not support the next step cleanly.
-
-Example starting point:
+Use these defaults for agents:
 
 ```powershell
-logseq page get "My-Project/My-Sub-Project"
+logseq page get "My Page" --fields name,uuid
+logseq block get "block-uuid" --fields uuid,content,page
+logseq page list --fields name,uuid --page 1 --page-size 20
 ```
 
-Observed behavior on this machine:
-- `logseq page get "My-Project/My-Sub-Project" | logseq page get --plain` works.
-- `logseq page get "My-Project/My-Sub-Project" --fields name,uuid | logseq page get --fields originalName,uuid --plain` works.
-- `logseq page get "My-Project/My-Sub-Project" | logseq page refs` does not work because `page refs` requires an explicit `NAME`.
-- Piping a page object into `block get` is not valid unless the piped UUID is actually a block UUID.
+## Stdin Contract
 
-If the next operation can consume the piped object correctly, prefer a pipeline instead of copying values by hand.
+Only these commands consume omitted identifiers from piped NDJSON:
 
-## Command Pattern
+| Command | Reads |
+|---|---|
+| `logseq page get [NAME]` | `.name` |
+| `logseq page delete [NAME]` | `.name` |
+| `logseq block get [UUID]` | `.uuid` |
+| `logseq block insert CONTENT [--uuid UUID]` | `.uuid` when `--uuid` is omitted |
+| `logseq block remove [UUID]` | `.uuid` |
 
-Start with these commands:
+Do not assume other commands read stdin just because they take a `name` or `uuid`.
+
+## Efficient Piping Patterns
+
+Prefer short NDJSON pipelines when the downstream command explicitly supports stdin.
+
+Good patterns:
 
 ```powershell
-logseq --help
-logseq page --help
-logseq block --help
-logseq query --help
+logseq page list --fields name,uuid --page 1 --page-size 20 | logseq page get --fields name,uuid
+logseq page get "Project Alpha" --fields name | logseq page delete
+logseq block get "2c4d..." --fields uuid,content | logseq block remove
+logseq block get "2c4d..." --fields uuid | logseq block insert "Follow-up note"
+logseq page list --fields name,uuid | jq -c "select(.name | startswith(\"Projects/\"))" | logseq page get --fields name,uuid
 ```
 
-If `logseq --help` fails because the command is missing, say so plainly and include the install and `PATH` steps from the workflow above before attempting any Logseq CLI operations.
+Bad patterns:
 
-Use the least invasive command that answers the question. If the user asks about a page and the CLI can retrieve it, use that route before opening `pages/*.md` directly. When possible, build a short `logseq ... | logseq ...` pipeline first.
+- `logseq page get "Page" --plain | logseq page delete`
+- `logseq page get "Page" | logseq page refs`
+- `logseq page get "Page" | logseq block get`
+- `logseq page list | logseq block remove`
+
+Why they are bad:
+
+- `--plain` destroys machine-readable NDJSON.
+- `page refs` requires an explicit page name and does not read stdin.
+- `block get` expects a block `.uuid`, not a page UUID.
+- `block remove` requires block UUID input, not page objects.
+
+## Token-Efficient Usage
+
+Prefer the smallest command that answers the question:
+
+- Need page existence or ID: `logseq page get "Page" --fields name,uuid`
+- Need only page metadata: `logseq page properties "Page"`
+- Need block metadata without children: `logseq block get "uuid" --fields uuid,content,page`
+- Need child tree too: `logseq block get "uuid" --include-children`
+- Need namespace discovery: `logseq page ns-list "Projects" --fields name,uuid`
+- Need namespace hierarchy: `logseq page ns-tree "Projects"`
+- Need targeted graph search: `logseq query run '[:find ... :where ...]'`
+- Need many sibling/child blocks inserted: `logseq block insert-batch ...`
+
+Prefer these heuristics:
+
+- Avoid `logseq page list` on large graphs unless the task truly needs a wide page scan.
+- If you only need names or UUIDs, always add `--fields`.
+- If the query can be narrowed in Datalog, do that instead of listing many pages and filtering later.
+- If the final consumer is another `logseq` command, keep the upstream object minimal.
+- If the user only needs a rendered answer, use `--plain` only at the final step.
+
+## Fallback And Compatibility Notes
+
+- `logseq page properties` is a fallback over the first block from the page tree.
+- `logseq page journal` uses a `YYYY_MM_DD` create-page fallback.
+- `logseq block append` uses a page-tree fallback that appends after the last top-level block.
+- Some raw Logseq HTTP methods are unsupported. Trust the CLI behavior and repo tests over assumptions about the upstream API.
+
+## Command Reference
+
+### Top-level
+
+| Command | Usage | Purpose |
+|---|---|---|
+| `logseq version` | `logseq version` | Print CLI version |
+| `logseq auth` | `logseq auth --help` | Manage stored API token |
+| `logseq page` | `logseq page --help` | Page operations |
+| `logseq block` | `logseq block --help` | Block operations |
+| `logseq graph` | `logseq graph --help` | Graph inspection |
+| `logseq query` | `logseq query --help` | Datalog queries |
+| `logseq skill` | `logseq skill --help` | Install or inspect this packaged skill |
+
+### `auth`
+
+| Command | Usage | Purpose |
+|---|---|---|
+| `auth set-token` | `logseq auth set-token [TOKEN]` | Store or replace the API token; prompt securely when omitted |
+| `auth status` | `logseq auth status` | Show config path and token presence |
+
+### `page`
+
+| Command | Usage | Purpose |
+|---|---|---|
+| `page list` | `logseq page list [--fields name,uuid] [--page N --page-size N] [--plain]` | List pages |
+| `page get` | `logseq page get [NAME] [--fields ...] [--plain]` | Get a page by name or piped `.name` |
+| `page create` | `logseq page create NAME [--fields ...] [--plain]` | Create a page |
+| `page delete` | `logseq page delete [NAME]` | Delete a page by name or piped `.name` |
+| `page rename` | `logseq page rename SRC DEST` | Rename a page |
+| `page refs` | `logseq page refs NAME [--fields ...] [--plain]` | Get linked references for a page |
+| `page properties` | `logseq page properties NAME [--plain]` | Get page properties |
+| `page journal` | `logseq page journal YYYY-MM-DD [--plain]` | Create or get a journal page |
+| `page ns-list` | `logseq page ns-list NAMESPACE [--fields ...] [--plain]` | List pages in a namespace |
+| `page ns-tree` | `logseq page ns-tree NAMESPACE [--plain]` | Get namespace tree structure |
+
+### `block`
+
+| Command | Usage | Purpose |
+|---|---|---|
+| `block get` | `logseq block get [UUID] [--fields ...] [--include-children] [--plain]` | Get a block by UUID or piped `.uuid` |
+| `block insert` | `logseq block insert CONTENT [--uuid UUID] [--sibling] [--plain]` | Insert relative to a block; read piped `.uuid` when `--uuid` is omitted |
+| `block update` | `logseq block update UUID CONTENT [--plain]` | Replace block content |
+| `block remove` | `logseq block remove [UUID]` | Remove a block by UUID or piped `.uuid` |
+| `block prepend` | `logseq block prepend PAGE CONTENT [--plain]` | Insert at top of page |
+| `block append` | `logseq block append PAGE CONTENT [--plain]` | Insert at bottom of page |
+| `block move` | `logseq block move SRC_UUID TARGET_UUID [--sibling] [--plain]` | Move a block relative to another block |
+| `block collapse` | `logseq block collapse UUID [--expand | --toggle]` | Collapse, expand, or toggle a block |
+| `block properties` | `logseq block properties UUID [--plain]` | Read all block properties |
+| `block prop-set` | `logseq block prop-set UUID KEY VALUE` | Set or update a property |
+| `block prop-remove` | `logseq block prop-remove UUID KEY` | Remove a property |
+| `block insert-batch` | `logseq block insert-batch UUID BATCH_JSON [--sibling] [--plain]` | Insert multiple blocks in one call |
+
+### `graph`
+
+| Command | Usage | Purpose |
+|---|---|---|
+| `graph info` | `logseq graph info [--plain]` | Get current graph name and path |
+
+### `query`
+
+| Command | Usage | Purpose |
+|---|---|---|
+| `query run` | `logseq query run DATALOG [--input VALUE ...] [--page N --page-size N] [--plain]` | Run a Datalog query |
+
+### `skill`
+
+| Command | Usage | Purpose |
+|---|---|---|
+| `skill install` | `logseq skill install [--scope user|project] [--target all|claude|agents]` | Install this skill into agent skill directories |
+| `skill status` | `logseq skill status [--scope user|project] [--target all|claude|agents]` | Check installed skill state |
+| `skill uninstall` | `logseq skill uninstall [--scope user|project] [--target all|claude|agents]` | Remove installed skill copies |
+| `skill show` | `logseq skill show [--scope user|project] [--target source|claude|agents]` | Print the packaged or installed skill |
+
+## Recommended Agent Playbooks
+
+### Read one page cheaply
+
+```powershell
+logseq page get "Page Name" --fields name,uuid,properties
+```
+
+### Find namespace members, then expand only the interesting pages
+
+```powershell
+logseq page ns-list "Projects" --fields name,uuid |
+  jq -c "select(.name | contains(\"Alpha\"))" |
+  logseq page get --fields name,uuid,properties
+```
+
+### Insert a child block under a known block
+
+```powershell
+logseq block get "2c4d..." --fields uuid | logseq block insert "New child block"
+```
+
+### Create many nested blocks in one call
+
+```powershell
+logseq block insert-batch "2c4d..." '[{"content":"Parent","children":[{"content":"Child 1"},{"content":"Child 2"}]}]'
+```
+
+### Use human-readable output only at the end
+
+```powershell
+logseq page get "Page Name" --fields name,uuid | logseq page get --plain
+```
