@@ -62,137 +62,112 @@ Most Logseq automation requires either the plugin API (which lives inside Logseq
 
 ## Installation
 
-`logseq-cli` is published on PyPI. Install it globally with `pipx` if you want the `logseq` command available in every shell without manually activating a virtual environment.
+`logseq-cli` is published on PyPI. For most users, `pipx` is the best install: isolated, global, and no virtual environment activation.
 
-Important: the CLI will not work until an API token is configured. Every installation method below must be followed by the required token setup step in [Set the API token](#2-set-the-api-token).
+Important: every install must be followed by [Set the API token](#2-set-the-api-token). The CLI will not work until that is configured.
 
-### Global install from PyPI with `pipx`
-
-#### Windows (PowerShell)
+### Recommended: install from PyPI with `pipx`
 
 ```powershell
+# Windows (PowerShell)
 py -m pip install --user pipx
 py -m pipx ensurepath
 pipx install logseq-cli
 ```
 
-#### macOS / Linux
-
 ```bash
+# macOS / Linux
 python3 -m pip install --user pipx
 python3 -m pipx ensurepath
 pipx install logseq-cli
 ```
 
-Then run the required token setup step in [Set the API token](#2-set-the-api-token) and verify:
+Then configure auth in [Set the API token](#2-set-the-api-token) and verify:
 
 ```bash
 logseq --help
 ```
 
-### Global install from PyPI with `pip`
-
-#### Windows (PowerShell)
+### Alternative: install from PyPI with `pip`
 
 ```powershell
+# Windows (PowerShell)
 py -m pip install --user logseq-cli
 ```
 
-The script usually lands in your user Python `Scripts` directory, such as `%APPDATA%\Python\Python310\Scripts`. Add that directory to `PATH` if `logseq` is not found after install.
-
-#### macOS
-
 ```bash
+# macOS / Linux
 python3 -m pip install --user logseq-cli
 ```
 
-If `logseq` is not found after install, make sure the user base binary directory is on your `PATH`:
+If `logseq` is not found after install, add your user Python scripts directory to `PATH`.
+Typical locations:
 
-```bash
-python3 -m site --user-base
-```
-
-On many systems that means adding a path such as `~/Library/Python/3.11/bin` to your shell profile.
-
-#### Linux
-
-```bash
-python3 -m pip install --user logseq-cli
-```
-
-If `logseq` is not found after install, add `~/.local/bin` to your `PATH`.
+- Windows: `%APPDATA%\Python\Python310\Scripts`
+- macOS: `~/Library/Python/3.11/bin`
+- Linux: `~/.local/bin`
 
 ### Install from a local checkout
 
-The examples below install from this repository checkout instead of PyPI.
+Use this if you want to run from the repo instead of PyPI.
 
-### Recommended: `pipx` (globally available, no manual activation)
-
-#### Windows (PowerShell)
+#### `pipx`
 
 ```powershell
+# Windows (PowerShell)
 py -m pip install --user pipx
 py -m pipx ensurepath
 pipx install .
 ```
 
-#### macOS / Linux
-
 ```bash
+# macOS / Linux
 python3 -m pip install --user pipx
 python3 -m pipx ensurepath
 pipx install .
 ```
 
-Then run the required token setup step in [Set the API token](#2-set-the-api-token) and verify:
+Then run [Set the API token](#2-set-the-api-token) and verify:
 
 ```bash
 logseq --help
 ```
 
-### Virtual environment (for development or isolation)
-
-#### Windows (PowerShell)
+#### Virtual environment
 
 ```powershell
+# Windows (PowerShell)
 py -3.10 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -e ".[dev]"
 ```
 
-#### macOS / Linux
-
 ```bash
+# macOS / Linux
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
-Then run the required token setup step in [Set the API token](#2-set-the-api-token) before using `logseq`.
+Then run [Set the API token](#2-set-the-api-token) before using `logseq`.
 
-### User install (no virtual environment)
-
-#### Windows (PowerShell)
+#### User install
 
 ```powershell
+# Windows (PowerShell)
 py -m pip install --user .
 ```
 
-The script lands in your user Python `Scripts` directory, such as `%APPDATA%\Python\Python310\Scripts` — add that to `PATH` if `logseq` is not found after install.
-
-#### macOS / Linux
-
 ```bash
+# macOS / Linux
 python3 -m pip install --user .
 ```
 
-If `logseq` is not found after install, add `~/.local/bin` to your `PATH`.
+If `logseq` is not found after install, add your user Python scripts directory to `PATH`, then run [Set the API token](#2-set-the-api-token).
 
-Then run the required token setup step in [Set the API token](#2-set-the-api-token) before running `logseq`.
+### Optional: install the agent skill
 
-### Install the agent skill
-
-If you want AI agents to install the bundled `logseq-cli` skill into their local skill directories, use:
+If you want AI agents to install the bundled `logseq-cli` skill:
 
 ```bash
 logseq skill install
@@ -214,112 +189,6 @@ Related commands:
 - `logseq skill status`
 - `logseq skill show`
 - `logseq skill uninstall`
-
-## Uninstall
-
-Use the uninstall flow that matches how you originally installed `logseq-cli`.
-
-### Uninstall a global `pipx` install from PyPI
-
-#### Windows (PowerShell)
-
-```powershell
-pipx uninstall logseq-cli
-```
-
-#### macOS / Linux
-
-```bash
-pipx uninstall logseq-cli
-```
-
-### Uninstall a global `pip` install from PyPI
-
-#### Windows (PowerShell)
-
-```powershell
-py -m pip uninstall logseq-cli
-```
-
-#### macOS
-
-```bash
-python3 -m pip uninstall logseq-cli
-```
-
-#### Linux
-
-```bash
-python3 -m pip uninstall logseq-cli
-```
-
-If you installed with `--user`, this removes the package and its `logseq` entry point from your user Python location.
-
-### Uninstall a local checkout installed with `pipx`
-
-If you ran `pipx install .` from this repository, remove that environment by package name:
-
-#### Windows (PowerShell)
-
-```powershell
-pipx uninstall logseq-cli
-```
-
-#### macOS / Linux
-
-```bash
-pipx uninstall logseq-cli
-```
-
-### Uninstall a virtual environment install
-
-If you created a project-local virtual environment, deactivate it if it is active and then remove the virtual environment directory.
-
-#### Windows (PowerShell)
-
-```powershell
-deactivate
-Remove-Item -Recurse -Force .\.venv
-```
-
-#### macOS / Linux
-
-```bash
-deactivate
-rm -rf .venv
-```
-
-If the environment is not active, skip `deactivate` and just remove `.venv`.
-
-### Uninstall a user install from a local checkout
-
-#### Windows (PowerShell)
-
-```powershell
-py -m pip uninstall logseq-cli
-```
-
-#### macOS
-
-```bash
-python3 -m pip uninstall logseq-cli
-```
-
-#### Linux
-
-```bash
-python3 -m pip uninstall logseq-cli
-```
-
-### Uninstall the agent skill
-
-If you also installed the optional agent skill, remove it separately:
-
-```bash
-logseq skill uninstall
-```
-
-That removes the installed `SKILL.md` from the supported skill target directories.
 
 ---
 
@@ -523,6 +392,51 @@ pytest --tb=short
 
 # Run a specific test module
 pytest tests/test_page.py --tb=short
+```
+
+---
+
+## Uninstall
+
+Use the uninstall flow that matches how you installed `logseq-cli`.
+
+### Remove the CLI
+
+```powershell
+# `pipx` install (Windows / macOS / Linux)
+pipx uninstall logseq-cli
+```
+
+```powershell
+# `pip` install on Windows
+py -m pip uninstall logseq-cli
+```
+
+```bash
+# `pip` install on macOS / Linux
+python3 -m pip uninstall logseq-cli
+```
+
+If you installed from a local checkout into a virtual environment, remove `.venv` instead:
+
+```powershell
+# Windows
+deactivate
+Remove-Item -Recurse -Force .\.venv
+```
+
+```bash
+# macOS / Linux
+deactivate
+rm -rf .venv
+```
+
+If the environment is not active, skip `deactivate`.
+
+### Remove the optional agent skill
+
+```bash
+logseq skill uninstall
 ```
 
 ---
