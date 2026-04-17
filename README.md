@@ -270,7 +270,7 @@ logseq block append "My Page" "- New thought"
 
 | Command | Arguments | What It Does |
 |---------|-----------|--------------|
-| `page list` | `--fields`, `--plain`, `--page`, `--page-size` | List all pages; `uuid` may be `null` when omitted by Logseq |
+| `page list` | `--fields`, `--plain`, `--page`, `--page-size` | List all pages; falls back from `originalName` to `name`, and `uuid` may be `null` when omitted by Logseq |
 | `page get [name]` | `--fields`, `--plain` | Get a page by name; auto-stdin reads `.name` |
 | `page create <name>` | `--fields`, `--plain` | Create a new page |
 | `page delete [name]` | | Delete a page; auto-stdin reads `.name` |
@@ -363,7 +363,7 @@ logseq page list --fields name,uuid
 {"name": "Another Page", "uuid": "def-456"}
 ```
 
-Some Logseq builds omit `uuid` on page objects returned by `getAllPages`. In that case, `logseq page list` emits `"uuid": null` instead of failing.
+Some Logseq builds return partial page objects from `getAllPages`. In that case, `logseq page list` falls back from `originalName` to `name`, and emits `"uuid": null` when `uuid` is omitted, instead of failing.
 
 ---
 

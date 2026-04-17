@@ -15,7 +15,7 @@ class LogseqPage(TypedDict):
 
 def normalize_page(page: dict) -> dict:
     return {
-        "name": page["originalName"],
+        "name": page.get("originalName") or page.get("name"),
         "uuid": page.get("uuid"),
         "properties": page.get("properties"),
         "isJournal": page.get("journal?"),
@@ -71,7 +71,7 @@ class LogseqService:
 
     async def get_all_page_names(self) -> list[str]:
         pages: list = await self._client.call_logseq_api("logseq.Editor.getAllPages", [])
-        return sorted(p["originalName"] for p in pages)
+        return sorted(name for p in pages if (name := p.get("originalName") or p.get("name")))
 
     async def get_page_blocks_tree(self, page_name: str) -> list:
         return await self._client.call_logseq_api(

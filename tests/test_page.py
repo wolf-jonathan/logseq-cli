@@ -47,6 +47,20 @@ def test_page_list_handles_pages_without_uuid(runner, mock_service):
     }
 
 
+def test_page_list_handles_pages_without_original_name(runner, mock_service):
+    mock_service.get_all_pages_raw.return_value = [
+        {"id": 10050, "name": "project/truedcexit", "createdAt": 1776070218475},
+    ]
+    result = runner.invoke(app, ["page", "list"])
+    assert result.exit_code == 0
+    assert json.loads(result.stdout.strip()) == {
+        "name": "project/truedcexit",
+        "uuid": None,
+        "properties": None,
+        "isJournal": None,
+    }
+
+
 def test_page_list_fields_option(runner, mock_service):
     mock_service.get_all_pages_raw.return_value = [
         {"originalName": "Page A", "uuid": "1", "journal?": False, "properties": {}},
