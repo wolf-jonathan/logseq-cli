@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 from src.logseq_client import LogseqClient
 from src.logseq_service import LogseqService
 from src import __version__
-from src.config import get_token
+from src.config import get_token, get_host, get_port
 from src.cli import auth as auth_module
 from src.cli import page as page_module
 from src.cli import block as block_module
@@ -61,9 +61,12 @@ def get_service() -> LogseqService:
             typer.echo("  logseq auth set-token", err=True)
             typer.echo("", err=True)
             typer.echo("Environment variable override is still supported:", err=True)
-            typer.echo("  LOGSEQ_TOKEN=your-token-here", err=True)
+            typer.echo("  LOGSEQ_TOKEN=***", err=True)
             raise typer.Exit(1)
-    return LogseqService(LogseqClient(token=token))
+    host = os.environ.get("LOGSEQ_HOST") or get_host()
+    port_str = os.environ.get("LOGSEQ_PORT")
+    port = int(port_str) if port_str else get_port()
+    return LogseqService(LogseqClient(token=token, host=host, port=port))
 
 
 def handle_errors(fn):
