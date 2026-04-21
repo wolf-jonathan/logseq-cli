@@ -63,3 +63,29 @@ def set_token(token: str) -> Path:
 def get_token() -> str | None:
     token = load_config().get("token")
     return token if isinstance(token, str) and token else None
+
+
+def set_host(host: str) -> Path:
+    config = load_config()
+    config["host"] = host
+    return save_config(config)
+
+
+def get_host() -> str:
+    config = load_config()
+    host = config.get("host")
+    return host if isinstance(host, str) and host else "127.0.0.1"
+
+
+def set_port(port: int) -> Path:
+    config = load_config()
+    config["port"] = port
+    return save_config(config)
+
+
+def get_port() -> int:
+    config = load_config()
+    port = config.get("port")
+    if isinstance(port, int) and port > 0:
+        return port
+    return 12315

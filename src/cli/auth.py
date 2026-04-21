@@ -4,9 +4,9 @@ from typing import Annotated, Optional
 
 import typer
 
-from src.config import get_config_path, get_token, set_token
+from src.config import get_config_path, get_token, set_token, get_host, set_host, get_port, set_port
 
-app = typer.Typer(no_args_is_help=True, help="Manage the stored Logseq API token.")
+app = typer.Typer(no_args_is_help=True, help="Manage Logseq API connection settings.")
 
 
 def _mask_token(token: str | None) -> str:
@@ -30,10 +30,36 @@ def auth_set_token(
     typer.echo(f"Config path: {path}")
 
 
+@app.command("set-host")
+def auth_set_host(
+    host: Annotated[
+        str,
+        typer.Argument(help="Logseq HTTP server host (default: 127.0.0.1)."),
+    ],
+) -> None:
+    path = set_host(host)
+    typer.echo(f"Stored Logseq host: {host}")
+    typer.echo(f"Config path: {path}")
+
+
+@app.command("set-port")
+def auth_set_port(
+    port: Annotated[
+        int,
+        typer.Argument(help="Logseq HTTP server port (default: 12315)."),
+    ],
+) -> None:
+    path = set_port(port)
+    typer.echo(f"Stored Logseq port: {port}")
+    typer.echo(f"Config path: {path}")
+
+
 @app.command("status")
 def auth_status() -> None:
     token = get_token()
     typer.echo(f"Config path: {get_config_path()}")
     typer.echo(f"Stored token: {_mask_token(token)}")
+    typer.echo(f"Host: {get_host()}")
+    typer.echo(f"Port: {get_port()}")
     if not token:
         typer.echo("Run `logseq auth set-token` to store a token.")
