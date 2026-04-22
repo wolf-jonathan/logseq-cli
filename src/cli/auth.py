@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import httpx
 from typing import Annotated, Optional
 
 import typer
 
-from src.config import get_config_path, get_token, set_token, get_server, set_server
+from src.config import get_config_path, get_token, set_token, get_server, set_server, _parse_server
 
 app = typer.Typer(no_args_is_help=True, help="Manage Logseq API connection settings.")
 
@@ -12,7 +13,6 @@ app = typer.Typer(no_args_is_help=True, help="Manage Logseq API connection setti
 def _validate_server(value: str) -> str:
     """Validate server string (host:port format)."""
     try:
-        from src.config import _parse_server
         _parse_server(value)
     except ValueError as e:
         raise typer.BadParameter(str(e))
@@ -25,6 +25,16 @@ def _mask_token(token: str | None) -> str:
     if len(token) <= 4:
         return "*" * len(token)
     return "*" * (len(token) - 4) + token[-4:]
+
+
+def _check_connectivity(host: str, port: int) -> bool:
+    """Return True if Logseq responds on the given host:port."""
+    try:
+        with httpx.Client(base_url=f"http://{host}:{port}", timeout=3) as client:
+            resp = client.get("/api")
+            return resp.status_code in (200, 400, 401, 403, 405)
+    except httpx.RequestError:
+        return False
 
 
 @app.command("set-token")
@@ -47,6 +57,19 @@ def auth_set_server(
         typer.Argument(help="Logseq HTTP server address in 'host:port' format (default: 127.0.0.1:12315).", callback=_validate_server),
     ],
 ) -> None:
+    host, port = _parse_server(server)
+
+    # Pre-save connectivity check
+    if not _check_connectivity(host, port):
+        typer.echo(
+            f"Warning: Cannot connect to Logseq at {host}:{port}. "
+            f"Is Logseq running and reachable?",
+            err=True,
+        )
+        if not typer.confirm("Save this server address anyway?", default=False):
+            typer.echo("Server address not saved.")
+            raise typer.Exit(0)
+
     path = set_server(server)
     typer.echo(f"Stored Logseq server: {server}")
     typer.echo(f"Config path: {path}")
