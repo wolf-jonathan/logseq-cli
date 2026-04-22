@@ -74,7 +74,7 @@ def test_get_service_uses_stored_token(monkeypatch, tmp_path):
     from src.cli.main import get_service
 
     set_token("stored-token")
-    service = get_service()
+    service = get_service(check_connectivity=False)
 
     assert service._client._headers["Authorization"] == "Bearer stored-token"
 
@@ -87,7 +87,7 @@ def test_env_token_overrides_stored_token(monkeypatch, tmp_path):
     from src.cli.main import get_service
 
     set_token("stored-token")
-    service = get_service()
+    service = get_service(check_connectivity=False)
 
     assert service._client._headers["Authorization"] == "Bearer env-token"
 
@@ -215,3 +215,86 @@ def test_config_get_port_falls_back_for_too_large(monkeypatch, tmp_path):
 
     save_config({"port": 70000})
     assert get_port() == 12315
+
+
+def test_auth_set_host_rejects_empty(runner, monkeypatch, tmp_path):
+    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
+
+    from src.cli.main import app
+
+    result = runner.invoke(app, ["auth", "set-host", ""])
+
+    assert result.exit_code == 2
+    assert "Host cannot be empty" in result.output
+
+
+def test_auth_set_host_rejects_whitespace(runner, monkeypatch, tmp_path):
+    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
+
+    from src.cli.main import app
+
+    result = runner.invoke(app, ["auth", "set-host", "  "])
+
+    assert result.exit_code == 2
+    assert "Host cannot be empty" in result.output
+
+
+def test_auth_set_host_rejects_spaces(runner, monkeypatch, tmp_path):
+    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
+
+    from src.cli.main import app
+
+    result = runner.invoke(app, ["auth", "set-host", "my host"])
+
+    assert result.exit_code == 2
+    assert "must not contain spaces" in result.output
+
+
+def test_auth_set_host_accepts_valid_host(runner, monkeypatch, tmp_path):
+    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
+
+    from src.cli.main import app
+
+    result = runner.invoke(app, ["auth", "set-host", "10.191.64.81"])
+
+    assert result.exit_code == 0
+    assert "Stored Logseq host: 10.191.64.81" in result.stdout
+
+
+def test_auth_set_host_accepts_localhost(runner, monkeypatch, tmp_path):
+    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
+
+    from src.cli.main import app
+
+    result = runner.invoke(app, ["auth", "set-host", "127.0.0.1"])
+
+    assert result.exit_code == 0
+
+
+def test_config_set_host_rejects_empty(monkeypatch, tmp_path):
+    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
+
+    from src.config import set_host
+
+    import pytest
+    with pytest.raises(ValueError, match="Host cannot be empty"):
+        set_host("")
+
+
+def test_config_set_host_rejects_spaces(monkeypatch, tmp_path):
+    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
+
+    from src.config import set_host
+
+    import pytest
+    with pytest.raises(ValueError, match="must not contain spaces"):
+        set_host("my host")
+
+
+def test_config_set_host_accepts_valid(monkeypatch, tmp_path):
+    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
+
+    from src.config import set_host, get_host
+
+    set_host("10.0.0.1")
+    assert get_host() == "10.0.0.1"

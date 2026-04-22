@@ -3,8 +3,17 @@ from __future__ import annotations
 import json
 import os
 import platform
+import re
 from pathlib import Path
 from typing import Any
+
+
+def _validate_host_value(host: str) -> None:
+    """Validate host at the config layer. Raises ValueError for invalid hosts."""
+    if not host or not host.strip():
+        raise ValueError("Host cannot be empty.")
+    if re.search(r"[\s\x00-\x1f]", host):
+        raise ValueError(f"Invalid host '{host}': must not contain spaces or control characters.")
 
 
 def get_config_dir() -> Path:
@@ -66,6 +75,7 @@ def get_token() -> str | None:
 
 
 def set_host(host: str) -> Path:
+    _validate_host_value(host)
     config = load_config()
     config["host"] = host
     return save_config(config)

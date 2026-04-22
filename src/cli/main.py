@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import re
 import sys
 from typing import Optional
 
@@ -50,7 +51,49 @@ def version() -> None:
     typer.echo(__version__)
 
 
-def get_service() -> LogseqService:
+def _validate_host_value(host: str) -> None:
+    """Validate host value from env var. Raises typer.Exit on failure."""
+    if not host or not host.strip():
+        typer.echo("Error: LOGSEQ_HOST cannot be empty.", err=True)
+        raise typer.Exit(1)
+    if re.search(r"[\s\x00-\x1f]", host):
+        typer.echo(
+            f"Error: LOGSEQ_HOST must not contain spaces or control characters, got '{host}'.",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+
+def _check_connectivity(host: str, port: int) -> None:
+    """Pre-flight connectivity check. Raises typer.Exit if Logseq is unreachable."""
+    try:
+        with httpx.Client(base_url=f"http://{host}:{port}", timeout=3) as sync_client:
+            response = sync_client.get("/api")
+            # 200 = healthy, 400/401/403/405 = server is running (just auth/method issue)
+            if response.status_code not in (200, 400, 401, 403, 405):
+                typer.echo(
+                    f"Error: Logseq responded with unexpected status {response.status_code} "
+                    f"at {host}:{port}. Is Logseq running with the HTTP plugin enabled?",
+                    err=True,
+                )
+                raise typer.Exit(1)
+    except httpx.ConnectError:
+        typer.echo(
+            f"Error: Cannot connect to Logseq at {host}:{port}. "
+            f"Is Logseq running and reachable?",
+            err=True,
+        )
+        raise typer.Exit(1)
+    except httpx.ReadTimeout:
+        typer.echo(
+            f"Error: Connection to Logseq at {host}:{port} timed out. "
+            f"Is Logseq running and responsive?",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+
+def get_service(check_connectivity: bool = True) -> LogseqService:
     token = os.environ.get("LOGSEQ_TOKEN")
     if not token:
         token = get_token()
@@ -63,7 +106,10 @@ def get_service() -> LogseqService:
             typer.echo("Environment variable override is still supported:", err=True)
             typer.echo("  LOGSEQ_TOKEN=your-token-here", err=True)
             raise typer.Exit(1)
-    host = os.environ.get("LOGSEQ_HOST") or get_host()
+    env_host = os.environ.get("LOGSEQ_HOST")
+    if env_host is not None:
+        _validate_host_value(env_host)
+    host = env_host or get_host()
     port = get_port()
     port_str = os.environ.get("LOGSEQ_PORT")
     if port_str:
@@ -81,6 +127,10 @@ def get_service() -> LogseqService:
                 err=True,
             )
             raise typer.Exit(1)
+
+    if check_connectivity:
+        _check_connectivity(host, port)
+
     return LogseqService(LogseqClient(token=token, host=host, port=port))
 
 

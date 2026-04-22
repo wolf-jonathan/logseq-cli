@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Annotated, Optional
 
 import typer
@@ -10,6 +11,16 @@ app = typer.Typer(no_args_is_help=True, help="Manage Logseq API connection setti
 
 MIN_PORT = 1
 MAX_PORT = 65535
+
+
+def _validate_host(value: str) -> str:
+    """Validate that a host string is non-empty and looks like a valid hostname or IP."""
+    if not value or not value.strip():
+        raise typer.BadParameter("Host cannot be empty.")
+    # Basic check: hostname/IP must not contain spaces or control chars
+    if re.search(r"[\s\x00-\x1f]", value):
+        raise typer.BadParameter(f"Invalid host '{value}': must not contain spaces or control characters.")
+    return value
 
 
 def _validate_port(value: str) -> int:
@@ -50,7 +61,7 @@ def auth_set_token(
 def auth_set_host(
     host: Annotated[
         str,
-        typer.Argument(help="Logseq HTTP server host (default: 127.0.0.1)."),
+        typer.Argument(help="Logseq HTTP server host (default: 127.0.0.1).", callback=_validate_host),
     ],
 ) -> None:
     path = set_host(host)
