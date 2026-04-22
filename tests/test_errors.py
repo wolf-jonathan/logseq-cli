@@ -137,3 +137,58 @@ def test_connectivity_error_shows_host_and_port(runner):
         result = runner.invoke(app, ["graph", "info"])
     assert result.exit_code == 1
     assert "127.0.0.1:1" in result.stderr
+
+
+# ---- get_current_graph integration test ----
+
+def test_get_current_graph_returns_graph_info(monkeypatch, tmp_path):
+    """When Logseq returns graph info, it should be parsed correctly."""
+    import httpx
+    from src.cli.auth import _get_current_graph
+
+    class FakeResponse:
+        status_code = 200
+        def json(self):
+            return {"name": "工作活动", "path": "D:/Document/Sync/SynologyDrive/AppData/logseq/工作活动", "url": "logseq_local_D:/Document/Sync/SynologyDrive/AppData/logseq/工作活动"}
+        def raise_for_status(self):
+            pass
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs):
+            pass
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            pass
+        def post(self, *args, **kwargs):
+            return FakeResponse()
+
+    import unittest.mock
+    with unittest.mock.patch("httpx.Client", FakeClient):
+        result = _get_current_graph("127.0.0.1", 12315, "fake-token")
+
+    assert result is not None
+    assert result["name"] == "工作活动"
+    assert "工作活动" in result["path"]
+
+
+def test_get_current_graph_returns_none_on_error(monkeypatch, tmp_path):
+    """When Logseq API errors, _get_current_graph should return None."""
+    import httpx
+    from src.cli.auth import _get_current_graph
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs):
+            pass
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            pass
+        def post(self, *args, **kwargs):
+            raise httpx.RequestError("Connection refused")
+
+    import unittest.mock
+    with unittest.mock.patch("httpx.Client", FakeClient):
+        result = _get_current_graph("127.0.0.1", 12315, "fake-token")
+
+    assert result is None

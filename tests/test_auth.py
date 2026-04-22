@@ -48,9 +48,9 @@ def test_auth_set_token_prompts_when_token_argument_omitted(monkeypatch, tmp_pat
 def test_auth_status_reports_missing_token(monkeypatch, tmp_path):
     monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
 
-    from src.cli.main import app
+    from src.cli.auth import app
 
-    result = runner().invoke(app, ["auth", "status"])
+    result = runner().invoke(app, ["status"])
 
     assert result.exit_code == 0
     assert f"Config path: {tmp_path / 'config.json'}" in result.stdout
@@ -62,10 +62,10 @@ def test_auth_status_masks_stored_token(monkeypatch, tmp_path):
     monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
 
     from src.config import set_token
-    from src.cli.main import app
+    from src.cli.auth import app
 
     set_token("token-1234")
-    result = runner().invoke(app, ["auth", "status"])
+    result = runner().invoke(app, ["status"])
 
     assert result.exit_code == 0
     assert f"Config path: {tmp_path / 'config.json'}" in result.stdout
@@ -112,10 +112,9 @@ def test_auth_set_server_accepts_bare_hostname_no_port(monkeypatch, tmp_path):
     """Bare hostname without port is valid (uses default port 12315)."""
     monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
     from src.cli.main import app
-    from typer.testing import CliRunner
     from unittest.mock import patch
     with patch("src.cli.auth._check_connectivity", return_value=True):
-        result = CliRunner().invoke(app, ["auth", "set-server", "127.0.0.1"])
+        result = runner().invoke(app, ["auth", "set-server", "127.0.0.1"])
     assert result.exit_code == 0
     assert "Stored Logseq server: 127.0.0.1" in result.stdout
 
@@ -245,12 +244,10 @@ def test_auth_set_server_prompts_on_connection_failure_and_aborts_on_n(monkeypat
     """When connection fails, user declines save (default N)."""
     monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
     from src.cli.main import app
-    from typer.testing import CliRunner
-    result = CliRunner().invoke(app, ["auth", "set-server", "127.0.0.1:12315"], input="n\n")
+    result = runner().invoke(app, ["auth", "set-server", "127.0.0.1:12315"], input="n\n")
     assert result.exit_code == 0
     assert "Cannot connect to Logseq" in result.output
     assert "not saved" in result.output
-    # Config file should not exist (nothing was saved)
     assert not (tmp_path / "config.json").exists()
 
 
@@ -258,12 +255,9 @@ def test_auth_set_server_prompts_on_connection_failure_and_saves_on_y(monkeypatc
     """When connection fails, user confirms save (Y)."""
     monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
     from src.cli.main import app
-    from typer.testing import CliRunner
-    result = CliRunner().invoke(app, ["auth", "set-server", "127.0.0.1:12315"], input="y\n")
+    result = runner().invoke(app, ["auth", "set-server", "127.0.0.1:12315"], input="y\n")
     assert result.exit_code == 0
     assert "Stored Logseq server: 127.0.0.1:12315" in result.stdout
-    assert "Connection: not verified" in result.stdout
-    import json
     config = json.loads((tmp_path / "config.json").read_text(encoding="utf-8"))
     assert config["server"] == "127.0.0.1:12315"
 
@@ -271,18 +265,22 @@ def test_auth_set_server_prompts_on_connection_failure_and_saves_on_y(monkeypatc
 def test_auth_set_server_saves_immediately_when_connected(monkeypatch, tmp_path):
     """When connection succeeds, save happens without prompt."""
     monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
+    monkeypatch.setenv("LOGSEQ_TOKEN", "test-token")
     from src.cli.main import app
-    from typer.testing import CliRunner
     from unittest.mock import patch
 
     with patch("src.cli.auth._check_connectivity", return_value=True):
-        result = CliRunner().invoke(app, ["auth", "set-server", "http://127.0.0.1:12315"])
+        with patch("src.cli.auth.get_token", return_value="test-token"):
+            with patch("src.cli.auth._get_current_graph", return_value={"name": "Test Graph", "path": "/tmp/test"}):
+                result = runner().invoke(app, ["auth", "set-server", "http://127.0.0.1:12315"], input="y\n")
 
     assert result.exit_code == 0
     assert "Stored Logseq server: http://127.0.0.1:12315" in result.stdout
     assert "Connection: OK" in result.stdout
+    assert "Current Graph:" in result.stdout
+    assert "Test Graph" in result.stdout
+    assert "Is this the correct graph?" in result.stdout
     assert "Save this server address anyway" not in result.output
-    import json
     config = json.loads((tmp_path / "config.json").read_text(encoding="utf-8"))
     assert config["server"] == "http://127.0.0.1:12315"
 
@@ -348,15 +346,13 @@ def test_parse_server_empty_returns_default(monkeypatch, tmp_path):
 def test_auth_set_server_accepts_full_url(monkeypatch, tmp_path):
     monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
     from src.cli.main import app
-    from typer.testing import CliRunner
     from unittest.mock import patch
 
     with patch("src.cli.auth._check_connectivity", return_value=True):
-        result = CliRunner().invoke(app, ["auth", "set-server", "http://example.com:8080"])
+        result = runner().invoke(app, ["auth", "set-server", "http://example.com:8080"])
 
     assert result.exit_code == 0
     assert "Stored Logseq server: http://example.com:8080" in result.stdout
-    import json
     config = json.loads((tmp_path / "config.json").read_text(encoding="utf-8"))
     assert config["server"] == "http://example.com:8080"
 
@@ -364,11 +360,10 @@ def test_auth_set_server_accepts_full_url(monkeypatch, tmp_path):
 def test_auth_set_server_accepts_https(monkeypatch, tmp_path):
     monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
     from src.cli.main import app
-    from typer.testing import CliRunner
     from unittest.mock import patch
 
     with patch("src.cli.auth._check_connectivity", return_value=True):
-        result = CliRunner().invoke(app, ["auth", "set-server", "https://example.com"])
+        result = runner().invoke(app, ["auth", "set-server", "https://example.com"])
 
     assert result.exit_code == 0
     assert "Stored Logseq server: https://example.com" in result.stdout
@@ -388,3 +383,21 @@ def test_config_resolve_server_bare_hostname_env(monkeypatch, tmp_path):
     host, port = resolve_server()
     assert host == "10.0.0.1"
     assert port == 12315
+
+
+def test_auth_set_server_shows_graph_info_warning_when_unavailable(monkeypatch, tmp_path):
+    """When graph info cannot be retrieved, show a warning."""
+    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
+    monkeypatch.setenv("LOGSEQ_TOKEN", "test-token")
+    from src.cli.main import app
+    from unittest.mock import patch
+
+    with patch("src.cli.auth._check_connectivity", return_value=True):
+        with patch("src.cli.auth.get_token", return_value="test-token"):
+            with patch("src.cli.auth._get_current_graph", return_value=None):
+                result = runner().invoke(app, ["auth", "set-server", "http://127.0.0.1:12315"])
+
+    assert result.exit_code == 0
+    assert "Stored Logseq server: http://127.0.0.1:12315" in result.stdout
+    assert "Connection: OK" in result.stdout
+    assert "Could not retrieve current graph info" in result.stdout

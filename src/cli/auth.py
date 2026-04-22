@@ -30,13 +30,34 @@ def _mask_token(token: str | None) -> str:
 
 
 def _check_connectivity(host: str, port: int) -> bool:
-    """Return True if Logseq responds on the given host:port."""
+    """Return True if Logseq HTTP server responds on the given host:port."""
     try:
         with httpx.Client(base_url=f"http://{host}:{port}", timeout=3) as client:
             resp = client.get("/api")
             return resp.status_code in (200, 400, 401, 403, 405)
     except httpx.RequestError:
         return False
+
+
+def _get_current_graph(host: str, port: int, token: str) -> dict | None:
+    """Call logseq.App.getCurrentGraph and return graph info or None on failure."""
+    try:
+        with httpx.Client(base_url=f"http://{host}:{port}", timeout=5) as client:
+            resp = client.post(
+                "/api",
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {token}",
+                },
+                json={"method": "logseq.App.getCurrentGraph", "args": []},
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            if isinstance(data, dict) and "name" in data:
+                return data
+    except (httpx.RequestError, httpx.HTTPStatusError, ValueError):
+        pass
+    return None
 
 
 @app.command("set-token")
@@ -76,10 +97,27 @@ def auth_set_server(
     path = set_server(server)
     typer.echo(f"Stored Logseq server: {server}")
     typer.echo(f"Config path: {path}")
-    if connected:
-        typer.echo("Connection: OK")
-    else:
+
+    if not connected:
         typer.echo("Connection: not verified (Logseq not reachable at time of saving)")
+        return
+
+    typer.echo("Connection: OK")
+
+    # Get current graph info
+    token = get_token()
+    graph = _get_current_graph(host, port, token) if token else None
+
+    if graph:
+        typer.echo("")
+        typer.echo(f"Current Graph:")
+        typer.echo(f"  Name: {graph.get('name', 'N/A')}")
+        typer.echo(f"  Path: {graph.get('path', 'N/A')}")
+        typer.echo("")
+        if not typer.confirm("Is this the correct graph?", default=True):
+            typer.echo("Server address saved, but you may want to check your Logseq configuration.")
+    else:
+        typer.echo("Warning: Could not retrieve current graph info (missing token or API error)")
 
 
 @app.command("status")
