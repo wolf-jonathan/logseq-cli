@@ -8,6 +8,22 @@ from src.config import get_config_path, get_token, set_token, get_host, set_host
 
 app = typer.Typer(no_args_is_help=True, help="Manage Logseq API connection settings.")
 
+MIN_PORT = 1
+MAX_PORT = 65535
+
+
+def _validate_port(value: str) -> int:
+    """Validate that a port string is a valid integer within 1-65535."""
+    try:
+        port = int(value)
+    except ValueError:
+        raise typer.BadParameter(f"'{value}' is not a valid integer.")
+    if port < MIN_PORT or port > MAX_PORT:
+        raise typer.BadParameter(
+            f"Port must be between {MIN_PORT} and {MAX_PORT}, got {port}."
+        )
+    return port
+
 
 def _mask_token(token: str | None) -> str:
     if not token:
@@ -46,7 +62,7 @@ def auth_set_host(
 def auth_set_port(
     port: Annotated[
         int,
-        typer.Argument(help="Logseq HTTP server port (default: 12315)."),
+        typer.Argument(help="Logseq HTTP server port (default: 12315).", callback=_validate_port),
     ],
 ) -> None:
     path = set_port(port)

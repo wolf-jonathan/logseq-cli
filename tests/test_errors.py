@@ -60,3 +60,25 @@ def test_missing_required_arg_exits_nonzero(runner):
         mock.return_value = AsyncMock()
         result = runner.invoke(app, ["block", "update"])
     assert result.exit_code != 0
+
+
+def test_env_port_non_integer_exits_1_with_friendly_message(runner):
+    with patch.dict("os.environ", {"LOGSEQ_CLI_CONFIG_DIR": "tmp-test-config", "LOGSEQ_TOKEN": "test-token", "LOGSEQ_PORT": "abc"}, clear=True):
+        import os
+        os.environ.pop("LOGSEQ_TOKEN", None)
+        os.environ["LOGSEQ_TOKEN"] = "test-token"
+        os.environ["LOGSEQ_PORT"] = "abc"
+        result = runner.invoke(app, ["graph", "info"])
+    assert result.exit_code == 1
+    assert "LOGSEQ_PORT must be a valid integer" in result.stderr
+
+
+def test_env_port_out_of_range_exits_1_with_friendly_message(runner):
+    with patch.dict("os.environ", {"LOGSEQ_CLI_CONFIG_DIR": "tmp-test-config", "LOGSEQ_TOKEN": "test-token", "LOGSEQ_PORT": "-1"}, clear=True):
+        import os
+        os.environ.pop("LOGSEQ_TOKEN", None)
+        os.environ["LOGSEQ_TOKEN"] = "test-token"
+        os.environ["LOGSEQ_PORT"] = "-1"
+        result = runner.invoke(app, ["graph", "info"])
+    assert result.exit_code == 1
+    assert "LOGSEQ_PORT must be between 1 and 65535" in result.stderr

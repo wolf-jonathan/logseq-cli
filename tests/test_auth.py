@@ -90,3 +90,128 @@ def test_env_token_overrides_stored_token(monkeypatch, tmp_path):
     service = get_service()
 
     assert service._client._headers["Authorization"] == "Bearer env-token"
+
+
+def test_auth_set_port_rejects_zero(runner, monkeypatch, tmp_path):
+    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
+
+    from src.cli.main import app
+
+    result = runner.invoke(app, ["auth", "set-port", "0"])
+
+    assert result.exit_code == 2
+    assert "Port must be between 1 and 65535" in result.output
+
+
+def test_auth_set_port_rejects_negative(runner, monkeypatch, tmp_path):
+    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
+
+    from src.cli.main import app
+
+    # Negative numbers require '--' separator to avoid being parsed as CLI options
+    result = runner.invoke(app, ["auth", "set-port", "--", "-1"])
+
+    assert result.exit_code == 2
+    assert "Port must be between 1 and 65535" in result.output
+
+
+def test_auth_set_port_rejects_non_integer(runner, monkeypatch, tmp_path):
+    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
+
+    from src.cli.main import app
+
+    result = runner.invoke(app, ["auth", "set-port", "abc"])
+
+    assert result.exit_code == 2
+    assert "not a valid integer" in result.output
+
+
+def test_auth_set_port_rejects_too_large(runner, monkeypatch, tmp_path):
+    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
+
+    from src.cli.main import app
+
+    result = runner.invoke(app, ["auth", "set-port", "65536"])
+
+    assert result.exit_code == 2
+    assert "Port must be between 1 and 65535" in result.output
+
+
+def test_auth_set_port_accepts_valid_port(runner, monkeypatch, tmp_path):
+    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
+
+    from src.cli.main import app
+
+    result = runner.invoke(app, ["auth", "set-port", "8080"])
+
+    assert result.exit_code == 0
+    assert "Stored Logseq port: 8080" in result.stdout
+
+
+def test_auth_set_port_accepts_boundary_ports(runner, monkeypatch, tmp_path):
+    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
+
+    from src.cli.main import app
+
+    result_1 = runner.invoke(app, ["auth", "set-port", "1"])
+    assert result_1.exit_code == 0
+
+    result_65535 = runner.invoke(app, ["auth", "set-port", "65535"])
+    assert result_65535.exit_code == 0
+
+
+def test_config_set_port_rejects_zero(monkeypatch, tmp_path):
+    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
+
+    from src.config import set_port
+
+    import pytest
+    with pytest.raises(ValueError, match="Port must be between 1 and 65535"):
+        set_port(0)
+
+
+def test_config_set_port_rejects_negative(monkeypatch, tmp_path):
+    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
+
+    from src.config import set_port
+
+    import pytest
+    with pytest.raises(ValueError, match="Port must be between 1 and 65535"):
+        set_port(-1)
+
+
+def test_config_set_port_rejects_too_large(monkeypatch, tmp_path):
+    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
+
+    from src.config import set_port
+
+    import pytest
+    with pytest.raises(ValueError, match="Port must be between 1 and 65535"):
+        set_port(65536)
+
+
+def test_config_get_port_falls_back_for_zero(monkeypatch, tmp_path):
+    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
+
+    from src.config import save_config, get_port
+
+    save_config({"port": 0})
+    assert get_port() == 12315
+
+
+def test_config_get_port_falls_back_for_negative(monkeypatch, tmp_path):
+    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
+
+    from src.config import save_config, get_port
+
+    save_config({"port": -1})
+    assert get_port() == 12315
+
+
+def test_config_get_port_falls_back_for_too_large(monkeypatch, tmp_path):
+    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
+
+    from src.config import save_config, get_port
+
+    save_config({"port": 70000})
+    assert get_port() == 12315

@@ -78,6 +78,8 @@ def get_host() -> str:
 
 
 def set_port(port: int) -> Path:
+    if not isinstance(port, int) or port < 1 or port > 65535:
+        raise ValueError(f"Port must be between 1 and 65535, got {port}")
     config = load_config()
     config["port"] = port
     return save_config(config)
@@ -86,6 +88,6 @@ def set_port(port: int) -> Path:
 def get_port() -> int:
     config = load_config()
     port = config.get("port")
-    if isinstance(port, int) and port > 0:
+    if isinstance(port, int) and 1 <= port <= 65535:
         return port
     return 12315

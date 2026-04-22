@@ -64,8 +64,23 @@ def get_service() -> LogseqService:
             typer.echo("  LOGSEQ_TOKEN=your-token-here", err=True)
             raise typer.Exit(1)
     host = os.environ.get("LOGSEQ_HOST") or get_host()
+    port = get_port()
     port_str = os.environ.get("LOGSEQ_PORT")
-    port = int(port_str) if port_str else get_port()
+    if port_str:
+        try:
+            port = int(port_str)
+        except ValueError:
+            typer.echo(
+                f"Error: LOGSEQ_PORT must be a valid integer between 1 and 65535, got '{port_str}'.",
+                err=True,
+            )
+            raise typer.Exit(1)
+        if port < 1 or port > 65535:
+            typer.echo(
+                f"Error: LOGSEQ_PORT must be between 1 and 65535, got {port}.",
+                err=True,
+            )
+            raise typer.Exit(1)
     return LogseqService(LogseqClient(token=token, host=host, port=port))
 
 
