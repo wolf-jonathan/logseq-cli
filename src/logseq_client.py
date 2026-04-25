@@ -5,11 +5,9 @@ class LogseqClient:
     def __init__(
         self,
         token: str,
-        host: str = "127.0.0.1",
-        port: int = 12315,
-        protocol: str = "http",
+        base_url: str,
     ) -> None:
-        self._base_url = f"{protocol}://{host}:{port}/api"
+        self._base_url = base_url.rstrip("/")
         self._headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {token}",
