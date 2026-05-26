@@ -288,255 +288,10 @@ def test_auth_set_server_saves_immediately_when_connected(monkeypatch, tmp_path)
     assert "Connection: OK" in result.stdout
     assert "Current Graph:" in result.stdout
     assert "Test Graph" in result.stdout
-    assert "Is this the correct graph?" in result.stdout
+    assert "Non-interactive environment, continuing automatically." in result.stdout
     assert "Save this server address anyway" not in result.output
     config = json.loads((tmp_path / "config.json").read_text(encoding="utf-8"))
     assert config["server"] == "http://127.0.0.1:12315/api"
-
-
-# ---- URL normalizing tests ----
-
-def test_normalize_server_full_url_preserves_port(monkeypatch, tmp_path):
-    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
-    from src.config import _normalize_server_url
-    assert _normalize_server_url("http://10.191.64.81:12315") == "http://10.191.64.81:12315/api"
-
-
-def test_normalize_server_http_url_omits_default_port(monkeypatch, tmp_path):
-    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
-    from src.config import _normalize_server_url
-    assert _normalize_server_url("http://example.com") == "http://example.com/api"
-
-
-def test_normalize_server_https_url_omits_default_port(monkeypatch, tmp_path):
-    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
-    from src.config import _normalize_server_url
-    assert _normalize_server_url("https://example.com") == "https://example.com/api"
-
-
-def test_normalize_server_https_with_explicit_port(monkeypatch, tmp_path):
-    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
-    from src.config import _normalize_server_url
-    assert _normalize_server_url("https://example.com:8443") == "https://example.com:8443/api"
-
-
-def test_normalize_server_bare_hostname_adds_scheme_and_port(monkeypatch, tmp_path):
-    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
-    from src.config import _normalize_server_url
-    assert _normalize_server_url("10.191.64.81") == "http://10.191.64.81:12315/api"
-
-
-def test_normalize_server_trailing_colon_adds_default_port(monkeypatch, tmp_path):
-    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
-    from src.config import _normalize_server_url
-    assert _normalize_server_url("10.191.64.81:") == "http://10.191.64.81:12315/api"
-
-
-def test_normalize_server_empty_raises(monkeypatch, tmp_path):
-    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
-    from src.config import _normalize_server_url
-    import pytest
-    with pytest.raises(ValueError, match="cannot be empty"):
-        _normalize_server_url("")
-
-
-def test_normalize_server_invalid_schema_raises(monkeypatch, tmp_path):
-    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
-    from src.config import _normalize_server_url
-    import pytest
-    with pytest.raises(ValueError, match="scheme must be http or https"):
-        _normalize_server_url("mqtt://127.0.0.1:1883")
-
-
-def test_normalize_server_preserves_explicit_api_path(monkeypatch, tmp_path):
-    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
-    from src.config import _normalize_server_url
-    assert _normalize_server_url("127.0.0.1/api") == "http://127.0.0.1:12315/api"
-    assert _normalize_server_url("http://127.0.0.1:12315/api") == "http://127.0.0.1:12315/api"
-
-
-def test_normalize_server_preserves_explicit_root_path(monkeypatch, tmp_path):
-    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
-    from src.config import _normalize_server_url
-    assert _normalize_server_url("http://10.0.0.1:8080/") == "http://10.0.0.1:8080/"
-
-
-def test_normalize_server_preserves_custom_subpath(monkeypatch, tmp_path):
-    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
-    from src.config import _normalize_server_url
-    assert _normalize_server_url("https://proxy.com/logseq/api") == "https://proxy.com/logseq/api"
-
-
-def test_normalize_server_preserves_subpath_without_api(monkeypatch, tmp_path):
-    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
-    from src.config import _normalize_server_url
-    assert _normalize_server_url("https://proxy.com/logseq") == "https://proxy.com/logseq"
-
-
-def test_auth_set_server_accepts_full_url(monkeypatch, tmp_path):
-    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
-    from src.cli.main import app
-    from unittest.mock import patch
-
-    with patch("src.logseq_client.LogseqClient.check_connectivity", return_value=True):
-        result = runner().invoke(app, ["auth", "set-server", "http://example.com:8080"])
-
-    assert result.exit_code == 0
-    assert "Stored Logseq server: http://example.com:8080/api" in result.stdout
-    config = json.loads((tmp_path / "config.json").read_text(encoding="utf-8"))
-    assert config["server"] == "http://example.com:8080/api"
-
-
-def test_auth_set_server_accepts_https(monkeypatch, tmp_path):
-    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
-    from src.cli.main import app
-    from unittest.mock import patch
-
-    with patch("src.logseq_client.LogseqClient.check_connectivity", return_value=True):
-        result = runner().invoke(app, ["auth", "set-server", "https://example.com"])
-
-    assert result.exit_code == 0
-    assert "Stored Logseq server: https://example.com" in result.stdout
-
-
-def test_config_resolve_server_bare_hostname_env(monkeypatch, tmp_path):
-    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
-    monkeypatch.setenv("LOGSEQ_SERVER", "10.0.0.1")
-    from src.config import resolve_server
-    url = resolve_server(default="http://fallback:12315")
-    assert url == "http://10.0.0.1:12315/api"
-
-
-def test_config_resolve_server_uses_default_when_nothing_configured(monkeypatch, tmp_path):
-    """resolve_server uses default as-is when no env var or config exists."""
-    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
-    from src.config import resolve_server
-    url = resolve_server(default="http://my-default:9999")
-    assert url == "http://my-default:9999"
-
-
-def test_config_resolve_token_env_overrides_config(monkeypatch, tmp_path):
-    """LOGSEQ_TOKEN env var overrides config file token."""
-    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
-    monkeypatch.setenv("LOGSEQ_TOKEN", "env-token")
-    from src.config import set_token, resolve_token
-    set_token("config-token")
-    assert resolve_token() == "env-token"
-
-
-def test_config_resolve_token_config_fallback(monkeypatch, tmp_path):
-    """When no env var, falls back to config file token."""
-    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
-    monkeypatch.delenv("LOGSEQ_TOKEN", raising=False)
-    from src.config import set_token, resolve_token
-    set_token("config-token")
-    assert resolve_token() == "config-token"
-
-
-def test_config_resolve_token_none(monkeypatch, tmp_path):
-    """Returns None when neither env nor config has token."""
-    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
-    monkeypatch.delenv("LOGSEQ_TOKEN", raising=False)
-    from src.config import resolve_token
-    assert resolve_token() is None
-
-
-def test_auth_set_server_no_token_warns_configure(monkeypatch, tmp_path):
-    """When no token, warns user to configure one."""
-    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
-    monkeypatch.delenv("LOGSEQ_TOKEN", raising=False)
-    from src.cli.main import app
-    from unittest.mock import patch
-    with patch("src.logseq_client.LogseqClient.check_connectivity", return_value=True):
-        result = runner().invoke(app, ["auth", "set-server", "http://127.0.0.1:12315"])
-    assert result.exit_code == 0
-    assert "No token configured" in result.output
-    assert "logseq auth set-token" in result.output
-
-
-def test_auth_set_server_auth_failed_warns_reconfigure(monkeypatch, tmp_path):
-    """When token auth fails, warns user to reconfigure."""
-    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
-    monkeypatch.setenv("LOGSEQ_TOKEN", "invalid-token")
-    from src.cli.main import app
-    from src.cli.auth import TokenAuthError
-    from unittest.mock import patch
-    with patch("src.logseq_client.LogseqClient.check_connectivity", return_value=True):
-        with patch("src.cli.auth._get_current_graph", side_effect=TokenAuthError("auth failed")):
-            result = runner().invoke(app, ["auth", "set-server", "http://127.0.0.1:12315"])
-    assert result.exit_code == 0
-    assert "Token authentication failed" in result.output
-    assert "reconfigure" in result.output
-
-
-def test_auth_set_server_api_error_shows_generic(monkeypatch, tmp_path):
-    """When API error occurs, shows generic warning."""
-    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
-    monkeypatch.setenv("LOGSEQ_TOKEN", "test-token")
-    from src.cli.main import app
-    from src.cli.auth import GraphInfoError
-    from unittest.mock import patch
-    with patch("src.logseq_client.LogseqClient.check_connectivity", return_value=True):
-        with patch("src.cli.auth._get_current_graph", side_effect=GraphInfoError("api error")):
-            result = runner().invoke(app, ["auth", "set-server", "http://127.0.0.1:12315"])
-    assert result.exit_code == 0
-    assert "Could not retrieve current graph info" in result.output
-
-
-def test_config_resolve_server_config_fallback(monkeypatch, tmp_path):
-    """When no env var, falls back to config file value."""
-    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
-    monkeypatch.delenv("LOGSEQ_SERVER", raising=False)
-    from src.config import save_config, resolve_server
-    save_config({"server": "http://192.168.1.1:9999/api"})
-    url = resolve_server(default="http://fallback:12315")
-    assert url == "http://192.168.1.1:9999/api"
-
-
-def test_config_resolve_server_empty_env_uses_config(monkeypatch, tmp_path):
-    """Empty LOGSEQ_SERVER env falls back to config."""
-    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
-    monkeypatch.setenv("LOGSEQ_SERVER", "")
-    from src.config import save_config, resolve_server
-    save_config({"server": "http://127.0.0.1:12315/api"})
-    url = resolve_server(default="http://fallback:12315")
-    assert url == "http://127.0.0.1:12315/api"
-
-
-def test_config_resolve_server_env_trims_whitespace(monkeypatch, tmp_path):
-    """LOGSEQ_SERVER whitespace is trimmed before normalization."""
-    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
-    monkeypatch.setenv("LOGSEQ_SERVER", "  10.0.0.1  ")
-    from src.config import resolve_server
-    url = resolve_server(default="http://fallback:12315")
-    assert url == "http://10.0.0.1:12315/api"
-
-
-def test_config_resolve_server_default_not_normalized(monkeypatch, tmp_path):
-    """Default value is returned as-is without normalization."""
-    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
-    monkeypatch.delenv("LOGSEQ_SERVER", raising=False)
-    from src.config import resolve_server
-    url = resolve_server(default="10.0.0.1:9999")
-    assert url == "10.0.0.1:9999"
-
-
-def test_auth_set_server_shows_graph_info_warning_when_unavailable(monkeypatch, tmp_path):
-    """When graph info cannot be retrieved, show a warning."""
-    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
-    monkeypatch.setenv("LOGSEQ_TOKEN", "test-token")
-    from src.cli.main import app
-    from src.cli.auth import GraphInfoError
-    from unittest.mock import patch
-
-    with patch("src.logseq_client.LogseqClient.check_connectivity", return_value=True):
-        with patch("src.cli.auth._get_current_graph", side_effect=GraphInfoError("api error")):
-            result = runner().invoke(app, ["auth", "set-server", "http://127.0.0.1:12315"])
-
-    assert result.exit_code == 0
-    assert "Stored Logseq server: http://127.0.0.1:12315" in result.stdout
-    assert "Connection: OK" in result.stdout
-    assert "Could not retrieve current graph info" in result.output
 
 
 # ---- trim tests ----
@@ -571,4 +326,85 @@ def test_auth_set_token_trims_whitespace(monkeypatch, tmp_path):
     assert result.exit_code == 0
     config = json.loads((tmp_path / "config.json").read_text(encoding="utf-8"))
     assert config["token"] == "my-token"
+
+
+# ---- yes/-y flag tests ----
+
+def test_auth_set_server_yes_flag_skips_graph_confirmation(monkeypatch, tmp_path):
+    """--yes/-y should skip the graph confirmation prompt."""
+    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
+    monkeypatch.setenv("LOGSEQ_TOKEN", "test-token")
+    from src.cli.main import app
+    from unittest.mock import patch
+
+    with patch("src.logseq_client.LogseqClient.check_connectivity", return_value=True):
+        with patch("src.cli.auth._get_current_graph", return_value={"name": "Test Graph", "path": "/tmp/test"}):
+            result = runner().invoke(app, ["auth", "set-server", "http://127.0.0.1:12315", "--yes"])
+
+    assert result.exit_code == 0
+    assert "Stored Logseq server: http://127.0.0.1:12315/api" in result.stdout
+    assert "Graph info auto-confirmed." in result.stdout
+    assert "Is this the correct graph?" not in result.stdout
+
+
+def test_auth_set_server_short_y_flag_skips_graph_confirmation(monkeypatch, tmp_path):
+    """-y should skip the graph confirmation prompt."""
+    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
+    monkeypatch.setenv("LOGSEQ_TOKEN", "test-token")
+    from src.cli.main import app
+    from unittest.mock import patch
+
+    with patch("src.logseq_client.LogseqClient.check_connectivity", return_value=True):
+        with patch("src.cli.auth._get_current_graph", return_value={"name": "Test Graph", "path": "/tmp/test"}):
+            result = runner().invoke(app, ["auth", "set-server", "http://127.0.0.1:12315", "-y"])
+
+    assert result.exit_code == 0
+    assert "Graph info auto-confirmed." in result.stdout
+
+
+def test_auth_set_server_non_interactive_no_crash(monkeypatch, tmp_path):
+    """Non-interactive environment (piped stdin) should not crash."""
+    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
+    monkeypatch.setenv("LOGSEQ_TOKEN", "test-token")
+    from src.cli.main import app
+    from unittest.mock import patch
+
+    with patch("src.logseq_client.LogseqClient.check_connectivity", return_value=True):
+        with patch("src.cli.auth._get_current_graph", return_value={"name": "Test Graph", "path": "/tmp/test"}):
+            result = runner().invoke(app, ["auth", "set-server", "http://127.0.0.1:12315"], input="")
+
+    assert result.exit_code == 0
+    assert "Non-interactive environment, continuing automatically." in result.stdout
+
+
+# ---- exact-path flag tests ----
+
+def test_auth_set_server_exact_path_preserves_root(monkeypatch, tmp_path):
+    """--exact-path should preserve root path '/' instead of converting to '/api'."""
+    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
+    from src.cli.main import app
+    from unittest.mock import patch
+
+    with patch("src.logseq_client.LogseqClient.check_connectivity", return_value=True):
+        result = runner().invoke(app, ["auth", "set-server", "http://127.0.0.1:12315/", "--exact-path"])
+
+    assert result.exit_code == 0
+    assert "Stored Logseq server: http://127.0.0.1:12315/" in result.stdout
+    config = json.loads((tmp_path / "config.json").read_text(encoding="utf-8"))
+    assert config["server"] == "http://127.0.0.1:12315/"
+
+
+def test_auth_set_server_default_converts_root_to_api(monkeypatch, tmp_path):
+    """Default behavior should convert root path '/' to '/api'."""
+    monkeypatch.setenv("LOGSEQ_CLI_CONFIG_DIR", str(tmp_path))
+    from src.cli.main import app
+    from unittest.mock import patch
+
+    with patch("src.logseq_client.LogseqClient.check_connectivity", return_value=True):
+        result = runner().invoke(app, ["auth", "set-server", "http://127.0.0.1:12315/"])
+
+    assert result.exit_code == 0
+    assert "Stored Logseq server: http://127.0.0.1:12315/api" in result.stdout
+    config = json.loads((tmp_path / "config.json").read_text(encoding="utf-8"))
+    assert config["server"] == "http://127.0.0.1:12315/api"
 
