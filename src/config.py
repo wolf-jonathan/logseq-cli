@@ -46,8 +46,14 @@ def _validate_server(server: str) -> None:
         raise ValueError(f"Invalid server '{server}': port must be between 1 and 65535, got {port}")
 
 
-def _normalize_server_url(server: str) -> str:
-    """Validate and normalize server string to a full URL."""
+def _normalize_server_url(server: str, exact_path: bool = False) -> str:
+    """Validate and normalize server string to a full URL.
+    
+    Args:
+        server: User-provided server URL string.
+        exact_path: If True, preserve the user-provided path exactly (including '/').
+                    If False (default), treat empty or root path as '/api'.
+    """
     _validate_server(server)
 
     server = server.strip()
@@ -73,10 +79,11 @@ def _normalize_server_url(server: str) -> str:
     else:
         netloc = f"{parsed.hostname}:{port}"
 
-    # Determine default API path
-    path = parsed.path or ""
-    if not path:
-        path = DEFAULT_PATH
+    # Determine path
+    if exact_path:
+        path = parsed.path
+    else:
+        path = parsed.path if parsed.path and parsed.path not in ("/", "") else DEFAULT_PATH
 
     return urlunparse(parsed._replace(netloc=netloc, path=path))
 
@@ -149,9 +156,9 @@ def resolve_token() -> str | None:
     return get_token()
 
 
-def set_server(server: str) -> str:
+def set_server(server: str, exact_path: bool = False) -> str:
     _validate_server(server)
-    normalized = _normalize_server_url(server)
+    normalized = _normalize_server_url(server, exact_path=exact_path)
     config = load_config()
     config["server"] = normalized
     save_config(config)

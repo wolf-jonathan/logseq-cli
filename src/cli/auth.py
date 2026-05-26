@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from typing import Annotated, Optional
 
 import httpx
@@ -86,9 +87,17 @@ def auth_set_server(
         str,
         typer.Argument(help=f"Logseq HTTP server URL (default: {DEFAULT_SERVER}). Examples: http://10.0.0.1:12315/api, https://example.com/api", callback=_validate_server),
     ],
+    yes: Annotated[
+        bool,
+        typer.Option("--yes", "-y", help="Auto-confirm graph info, skip interactive prompt"),
+    ] = False,
+    exact_path: Annotated[
+        bool,
+        typer.Option("--exact-path", help="Use the provided path exactly, do not auto-append /api"),
+    ] = False,
 ) -> None:
     # Normalize to full URL
-    base_url = _normalize_server_url(server)
+    base_url = _normalize_server_url(server, exact_path=exact_path)
 
     # Pre-save connectivity check
     connected = LogseqClient.check_connectivity(base_url)
@@ -102,7 +111,7 @@ def auth_set_server(
             typer.echo("Server address not saved.")
             raise typer.Exit(0)
 
-    normalized_url = set_server(base_url)
+    normalized_url = set_server(base_url, exact_path=exact_path)
     typer.echo(f"Stored Logseq server: {normalized_url}")
     typer.echo(f"Config path: {get_config_path()}")
 
@@ -133,8 +142,13 @@ def auth_set_server(
     typer.echo(f"  Name: {graph.get('name', 'N/A')}")
     typer.echo(f"  Path: {graph.get('path', 'N/A')}")
     typer.echo("")
-    if not typer.confirm("Is this the correct graph?", default=True):
-        typer.echo("Server address saved, but you may want to check your Logseq configuration.")
+
+    if yes:
+        typer.echo("Graph info auto-confirmed.")
+    elif not sys.stdin.isatty():
+        typer.echo("Non-interactive environment, continuing automatically.")
+    else:
+        typer.confirm("Is this the correct graph?", abort=True, default=True)
 
 
 @app.command("status")
