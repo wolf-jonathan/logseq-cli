@@ -1,26 +1,25 @@
 from __future__ import annotations
 
-import asyncio
 import os
 import sys
-from typing import Optional
 
 import httpx
 import typer
 from dotenv import load_dotenv
 
-from src.logseq_client import LogseqClient
-from src.logseq_service import LogseqService
 from src import __version__
-from src.config import get_token
 from src.cli import auth as auth_module
-from src.cli import page as page_module
 from src.cli import block as block_module
 from src.cli import graph as graph_module
+from src.cli import page as page_module
 from src.cli import query as query_module
 from src.cli import skill as skill_module
+from src.config import get_token, resolve_server, DEFAULT_SERVER
+from src.logseq_client import LogseqClient
+from src.logseq_service import LogseqService
 
 load_dotenv()
+
 
 
 def configure_windows_stdio_utf8() -> None:
@@ -50,7 +49,7 @@ def version() -> None:
     typer.echo(__version__)
 
 
-def get_service() -> LogseqService:
+def get_service(check_connectivity: bool = True) -> LogseqService:
     token = os.environ.get("LOGSEQ_TOKEN")
     if not token:
         token = get_token()
@@ -63,7 +62,18 @@ def get_service() -> LogseqService:
             typer.echo("Environment variable override is still supported:", err=True)
             typer.echo("  LOGSEQ_TOKEN=your-token-here", err=True)
             raise typer.Exit(1)
-    return LogseqService(LogseqClient(token=token))
+
+    try:
+        base_url = resolve_server(default=DEFAULT_SERVER)
+    except ValueError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
+
+    if check_connectivity:
+        if not LogseqClient.check_connectivity(base_url, verbose=True):
+            raise typer.Exit(1)
+
+    return LogseqService(LogseqClient(token=token, base_url=base_url))
 
 
 def handle_errors(fn):
