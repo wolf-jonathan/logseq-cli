@@ -21,7 +21,10 @@ class LogseqClient:
     def check_connectivity(url: str, verbose: bool = False) -> bool:
         try:
             with httpx.Client(timeout=3) as sync_client:
-                response = sync_client.get(url)
+                response = sync_client.post(
+                    url,
+                    json={"method": "logseq.App.getCurrentGraph", "args": []},
+                )
                 if response.status_code in LogseqClient.OK_STATUS_CODES:
                     return True
                 if verbose:
